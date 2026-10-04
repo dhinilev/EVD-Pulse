@@ -1,0 +1,37 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unzip project
+        run: unzip -q oi-tracker-android.zip
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Build APK
+        working-directory: oi-tracker-android
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Publish APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v3.${{ github.run_number }}
+          name: EVD Pulse v3.${{ github.run_number }}
+          files: oi-tracker-android/app/build/outputs/apk/release/app-release.apk
