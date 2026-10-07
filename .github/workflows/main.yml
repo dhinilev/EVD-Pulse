@@ -13,8 +13,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unzip project
-        run: unzip -oq "$(ls *.zip | head -1)"
+      - name: Unpack the uploaded project zip (if any)
+        run: |
+          Z=$(ls *.zip 2>/dev/null | sort -V | tail -1)
+          if [ -n "$Z" ]; then echo "Using $Z"; rm -rf app; unzip -o -q "$Z" -d .; fi
+          ls
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -24,13 +28,24 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Build APK
-        working-directory: oi-tracker-android
+      - name: Build
         run: gradle assembleRelease --no-daemon --stacktrace
 
-      - name: Publish APK
+      - name: Rename APK
+        run: |
+          VER=$(grep -oP 'versionName "\K[^"]+' app/build.gradle)
+          echo "APPVER=$VER" >> $GITHUB_ENV
+          cp app/build/outputs/apk/release/app-release.apk "EV-Pulse-v$VER.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EV-Pulse-v${{ env.APPVER }}-apk
+          path: EV-Pulse-v${{ env.APPVER }}.apk
+
+      - name: Publish as a release (easy phone download)
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v3.${{ github.run_number }}
-          name: EVD Pulse v3.${{ github.run_number }}
-          files: oi-tracker-android/app/build/outputs/apk/release/app-release.apk
+          tag_name: v${{ env.APPVER }}-b${{ github.run_number }}
+          name: EV Pulse v${{ env.APPVER }} (build ${{ github.run_number }})
+          make_latest: true
+          files: EV-Pulse-v${{ env.APPVER }}.apk
